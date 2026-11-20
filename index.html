@@ -72,7 +72,7 @@ const $=id=>document.getElementById(id);
 const cv=$('c'),g=cv.getContext('2d');
 let W=0,H=0,DPR=1,S=1,OX=0,OY=0;
 const WW=1000,WH=1300,SEA=1190,DECK=1158,HALF=46;       // 世界の大きさ・海面・甲板・機体の半分の高さ
-const G=90,ENG=99,KROT=1.7,VY_OK=60,VX_OK=32,ANG_OK=0.19; // 重力・エンジン1基の加速・回す強さ・着陸の合格条件
+const G=90,ENG=99,KROT=1.7,VY_OK=60,VX_OK=40,ANG_OK=0.19; // 重力・エンジン1基の加速・回す強さ・着陸の合格条件
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=window.innerWidth;H=window.innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);S=Math.min(W/WW,H/WH);OX=(W-WW*S)/2;OY=H-WH*S}
 window.addEventListener('resize',resize);resize();
 
@@ -95,8 +95,8 @@ function newStage(){
   const pw=230-110*d;
   pad={x:300+rnd()*400,w:pw,vx:stage>=4?(rnd()<.5?-1:1)*(16+stage*3.5):0};
   wind=stage>=2?(rnd()*2-1)*(8+34*d):0;
-  R={x:220+rnd()*560,y:70,vx:(rnd()*2-1)*(30+50*d),vy:95+rnd()*40+50*d,a:(rnd()*2-1)*(.12+.28*d),w:0,eL:false,eR:false,on:false};
-  fuelMax=fuel=19-6*d;
+  R={x:Math.max(150,Math.min(850,pad.x+(rnd()*2-1)*(80+340*d))),y:70,vx:(rnd()*2-1)*(14+60*d),vy:80+rnd()*30+50*d,a:(rnd()*2-1)*(.08+.3*d),w:0,eL:false,eR:false,on:false};
+  fuelMax=fuel=28-11*d;
   st='play';phaseT=0;last=null;
 }
 function reset(){rnd=mulberry(seed);stage=0;score=0;landed=0;bestSoft=99;bestCen=999;parts=[];texts=[];shake=0;flash=0;newStage()}

@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>逆噴射 — ロケットを立てたまま降ろせ</title>
+<meta name="description" content="左右2基のエンジンだけで、落ちてくるロケットを船の上に立てたまま着陸させるブラウザゲーム。何回連続で降ろせるか。毎日おなじ条件で全員が挑戦。">
+<meta property="og:title" content="逆噴射 — ロケットを立てたまま降ろせ">
+<meta property="og:description" content="左右2基のエンジンだけで、落ちてくるロケットを船の上に着陸させる。何回連続で降ろせるか。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://nosunosukawa.github.io/gyakufunsha/">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#0b1026">
+<link rel="icon" href="data:,">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#0b1026;color:#f2f6ff;font-family:system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;touch-action:none;overscroll-behavior:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:24px 20px calc(24px + env(safe-area-inset-bottom));text-align:center;background:radial-gradient(ellipse at center,rgba(11,16,38,.5),rgba(11,16,38,.88))}
+.ov[hidden]{display:none}
+h1{font-size:clamp(46px,14vw,96px);letter-spacing:.12em;font-weight:900;line-height:1.05;background:linear-gradient(180deg,#fff 30%,#ffd27a 60%,#ff7a3c);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 20px rgba(255,140,60,.45))}
+.sub{font-size:clamp(13px,3.6vw,17px);opacity:.85;letter-spacing:.1em}
+.how{font-size:clamp(14px,3.8vw,18px);line-height:1.9;max-width:31em}
+.how b{color:#ffd27a}
+.day{font-size:13px;opacity:.72;letter-spacing:.08em}
+button{font:inherit;color:#1c0d02;background:linear-gradient(180deg,#ffe2a6,#ff9a3c);border:0;border-radius:999px;padding:14px 34px;font-size:clamp(17px,4.6vw,21px);font-weight:800;letter-spacing:.08em;cursor:pointer;box-shadow:0 6px 26px rgba(255,140,60,.5);touch-action:manipulation}
+button:active{transform:scale(.96)}
+button.ghost{background:transparent;color:#f2f6ff;border:1.5px solid rgba(242,246,255,.55);box-shadow:none}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.big{font-size:clamp(56px,17vw,112px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.big small{font-size:.3em;font-weight:700;margin-left:.2em;opacity:.85}
+.rank{font-size:clamp(20px,6vw,30px);font-weight:800;color:#ffd27a;letter-spacing:.1em}
+.stats{display:grid;grid-template-columns:repeat(2,auto);gap:4px 22px;font-size:clamp(13px,3.7vw,16px);text-align:left;opacity:.94}
+.stats span:nth-child(even){text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.nb{color:#ffd27a;font-weight:800;font-size:15px;min-height:1.3em}
+#mute{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));width:42px;height:42px;padding:0;border-radius:50%;font-size:19px;background:rgba(255,255,255,.1);color:#fff;box-shadow:none;border:1px solid rgba(255,255,255,.25);z-index:5}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="mute" aria-label="音の切り替え">🔊</button>
+<div class="ov" id="title">
+  <div class="sub">エンジン2基だけの着陸チャレンジ</div>
+  <h1>逆噴射</h1>
+  <p class="how">画面の<b>左</b>を押すと左へ、<b>右</b>を押すと右へ傾く。<br><b>両方（または中央）</b>で全力の逆噴射。<br>船の上に、<b>ゆっくり・まっすぐ</b>降ろす。何回続けられるか。</p>
+  <div class="day">PC は ← → キー、↑ かスペースで全力</div>
+  <div class="day" id="day"></div>
+  <button id="start">スタート</button>
+  <div class="day" id="bestT"></div>
+</div>
+<div class="ov" id="result" hidden>
+  <div class="sub" id="cause"></div>
+  <div class="big"><span id="rN">0</span><small>回 連続着陸</small></div>
+  <div class="rank" id="rRank"></div>
+  <div class="nb" id="rNew"></div>
+  <div class="stats">
+    <span>得点</span><span id="rSc"></span>
+    <span>いちばん静かな着地</span><span id="rSoft"></span>
+    <span>いちばん真ん中</span><span id="rCen"></span>
+    <span>自己ベスト</span><span id="rBest"></span>
+  </div>
+  <div class="row">
+    <button id="again">もう一度</button>
+    <button id="share" class="ghost">X に投稿</button>
+  </div>
+  <div class="day" id="day2"></div>
+</div>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const cv=$('c'),g=cv.getContext('2d');
+let W=0,H=0,DPR=1,S=1,OX=0,OY=0;
+const WW=1000,WH=1300,SEA=1190,DECK=1158,HALF=46;       // 世界の大きさ・海面・甲板・機体の半分の高さ
+const G=90,ENG=99,KROT=1.7,VY_OK=60,VX_OK=32,ANG_OK=0.19; // 重力・エンジン1基の加速・回す強さ・着陸の合格条件
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=window.innerWidth;H=window.innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);S=Math.min(W/WW,H/WH);OX=(W-WW*S)/2;OY=H-WH*S}
+window.addEventListener('resize',resize);resize();
+
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const now=new Date();
+const seed=now.getFullYear()*10000+(now.getMonth()+1)*100+now.getDate();
+const dayLabel='今日の条件 '+(now.getMonth()+1)+'/'+now.getDate()+'（風も船の動きも全員おなじ）';
+$('day').textContent=dayLabel;$('day2').textContent=dayLabel;
+
+let st='title',R,pad,wind=0,stage=0,score=0,landed=0,bestSoft=99,bestCen=999,fuel=0,fuelMax=1,parts=[],texts=[],shake=0,flash=0,tNow=0,phaseT=0,cause='',rnd,last=null;
+const inp={L:false,R:false,B:false};const ptrs=new Map();
+let best=0;try{best=parseInt(localStorage.getItem('gyaku_best'))||0}catch(e){}
+function showBest(){$('bestT').textContent=best>0?'自己ベスト '+best+' 回連続':''}
+showBest();
+const stars=[];{const r=mulberry(11);for(let i=0;i<110;i++)stars.push({x:r(),y:r()*.62,z:.6+r()*1.6,tw:r()*6.28})}
+
+function newStage(){
+  stage++;
+  const d=Math.min(1,(stage-1)/9);
+  const pw=230-110*d;
+  pad={x:300+rnd()*400,w:pw,vx:stage>=4?(rnd()<.5?-1:1)*(16+stage*3.5):0};
+  wind=stage>=2?(rnd()*2-1)*(8+34*d):0;
+  R={x:220+rnd()*560,y:70,vx:(rnd()*2-1)*(30+50*d),vy:95+rnd()*40+50*d,a:(rnd()*2-1)*(.12+.28*d),w:0,eL:false,eR:false,on:false};
+  fuelMax=fuel=19-6*d;
+  st='play';phaseT=0;last=null;
+}
+function reset(){rnd=mulberry(seed);stage=0;score=0;landed=0;bestSoft=99;bestCen=999;parts=[];texts=[];shake=0;flash=0;newStage()}
+
+// ---- 音
+let AC=null,muted=false,engG=null;
+try{muted=localStorage.getItem('gyaku_mute')==='1'}catch(e){}
+$('mute').textContent=muted?'🔇':'🔊';
+function audio(){
+  if(AC){if(AC.state==='suspended')AC.resume();return}
+  try{
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    const n=AC.sampleRate*2,b=AC.createBuffer(1,n,AC.sampleRate),a=b.getChannelData(0);
+    let v=0;for(let i=0;i<n;i++){v=v*.97+(Math.random()*2-1)*.25;a[i]=v}
+    const s=AC.createBufferSource();s.buffer=b;s.loop=true;
+    const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=900;
+    engG=AC.createGain();engG.gain.value=0;s.connect(f);f.connect(engG);engG.connect(AC.destination);s.start();
+  }catch(e){AC=null}
+}
+function tone(fr,d,type,v,slide){
+  if(!AC||muted)return;
+  const o=AC.createOscillator(),gn=AC.createGain(),t=AC.currentTime;
+  o.type=type||'sine';o.frequency.setValueAtTime(fr,t);
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,fr+slide),t+d);
+  gn.gain.setValueAtTime(v||.1,t);gn.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(gn);gn.connect(AC.destination);o.start(t);o.stop(t+d+.03);
+}
+function boom(d,v,fq){
+  if(!AC||muted)return;
+  const n=Math.floor(AC.sampleRate*d),b=AC.createBuffer(1,n,AC.sampleRate),a=b.getChannelData(0);
+  for(let i=0;i<n;i++)a[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
+  const s=AC.createBufferSource();s.buffer=b;
+  const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=fq||500;
+  const gn=AC.createGain();gn.gain.value=v||.4;s.connect(f);f.connect(gn);gn.connect(AC.destination);s.start();
+}
+$('mute').addEventListener('click',e=>{e.stopPropagation();muted=!muted;$('mute').textContent=muted?'🔇':'🔊';try{localStorage.setItem('gyaku_mute',muted?'1':'0')}catch(e){}if(!muted)audio()});
+
+function burst(x,y,n,col,sp,life,up){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=sp*(.25+Math.random());parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(up||0),l:life*(.5+Math.random()*.5),m:life,c:col,z:2+Math.random()*4,gr:120})}}
+function say(t,c,sz){texts.push({t,c:c||'#fff',l:1.6,sz:sz||44})}
+
+function fail(why,sea){
+  st='dead';phaseT=0;cause=why;
+  if(sea){burst(R.x,SEA,70,'#bfe6ff',420,1.1,260);boom(.8,.35,700)}
+  else{burst(R.x,R.y+20,90,'#ffb14a',520,1.2,120);burst(R.x,R.y+20,50,'#fff3c4',300,.8,80);burst(R.x,R.y,40,'#6b6b78',220,1.8,60);boom(1.1,.5,380);flash=1}
+  shake=26;tone(120,.7,'sawtooth',.1,-80);
+  if(engG)engG.gain.value=0;
+}
+function touchdown(){
+  const rvx=R.vx-pad.vx,off=Math.abs(R.x-pad.x);
+  if(off>pad.w/2-10){ if(R.y+HALF>=SEA-4)fail('海に落ちた',true); return false }
+  if(R.vy>VY_OK){fail('着地が速すぎた（毎秒 '+(R.vy/10).toFixed(1)+' m）');return true}
+  if(Math.abs(R.a)>ANG_OK||Math.abs(R.w)>.9){fail('傾いたまま着地して倒れた');return true}
+  if(Math.abs(rvx)>VX_OK){fail('横すべりして倒れた');return true}
+  // 成功
+  const soft=R.vy/10,cen=off/10;
+  const pts=1000+Math.round(Math.max(0,1-R.vy/VY_OK)*500)+Math.round(Math.max(0,1-off/(pad.w/2))*500)+Math.round(fuel/fuelMax*300)+stage*100;
+  score+=pts;landed++;bestSoft=Math.min(bestSoft,soft);bestCen=Math.min(bestCen,cen);
+  R.y=DECK-HALF;R.vy=0;R.vx=pad.vx;R.a=0;R.w=0;R.eL=R.eR=false;
+  st='landed';phaseT=0;
+  say('着陸成功！','#ffd27a',54);say('+'+pts+'　着地 毎秒'+soft.toFixed(1)+'m・ずれ '+cen.toFixed(1)+'m','#fff',24);
+  burst(R.x-30,DECK,16,'#d8dde8',160,.9,40);burst(R.x+30,DECK,16,'#d8dde8',160,.9,40);
+  tone(523,.14,'triangle',.1);setTimeout(()=>tone(659,.14,'triangle',.1),120);setTimeout(()=>tone(784,.3,'triangle',.1),240);
+  if(engG)engG.gain.value=0;
+  return true;
+}
+
+function step(dt){
+  tNow+=dt;phaseT+=dt;
+  pad.x+=pad.vx*dt;if(pad.x<200&&pad.vx<0)pad.vx=-pad.vx;if(pad.x>800&&pad.vx>0)pad.vx=-pad.vx;
+  if(st==='landed'){R.x+=pad.vx*dt;if(phaseT>2)newStage();return}
+  if(st!=='play')return;
+  const both=inp.B||(inp.L&&inp.R),has=fuel>0;
+  R.eL=has&&(both||inp.R);R.eR=has&&(both||inp.L);
+  const n=(R.eL?1:0)+(R.eR?1:0);
+  fuel=Math.max(0,fuel-n*dt);
+  const ux=Math.sin(R.a),uy=-Math.cos(R.a);
+  R.w+=KROT*((R.eL?1:0)-(R.eR?1:0))*dt;R.w*=Math.exp(-1.4*dt);R.a+=R.w*dt;
+  R.vx+=(ux*ENG*n+wind)*dt;R.vy+=(G+uy*ENG*n)*dt;
+  R.x+=R.vx*dt;R.y+=R.vy*dt;
+  if(n){
+    for(const sd of[-1,1]){if(sd<0?!R.eL:!R.eR)continue;
+      const bx=R.x-ux*HALF+Math.cos(R.a)*sd*9,by=R.y-uy*HALF+Math.sin(R.a)*sd*9;
+      for(let k=0;k<2;k++)parts.push({x:bx,y:by,vx:R.vx-ux*(260+Math.random()*160)+(Math.random()-.5)*60,vy:R.vy-uy*(260+Math.random()*160)+(Math.random()-.5)*60,l:.28+Math.random()*.2,m:.48,c:Math.random()<.5?'#ffd27a':'#ff7a3c',z:3+Math.random()*4,gr:0,glow:1});
+    }
+  }
+  if(engG&&AC)engG.gain.value=muted?0:n*.11;
+  const bottom=R.y+HALF;
+  if(bottom>=DECK&&bottom<DECK+26&&R.vy>0&&Math.abs(R.x-pad.x)<pad.w/2+14){if(touchdown())return}
+  if(bottom>=SEA){fail('海に落ちた',true);return}
+  if(R.x<-260||R.x>WW+260||R.y<-900){fail('どこかへ飛んでいった');return}
+}
+function fx(dt){
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.l-=dt;if(p.l<=0){parts.splice(i,1);continue}p.vy+=p.gr*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.gr){p.vx*=.99}else if(p.y>DECK&&Math.abs(p.x-pad.x)<pad.w/2){p.y=DECK;p.vy*=-.2;p.vx*=1.5}}
+  for(let i=texts.length-1;i>=0;i--){texts[i].l-=dt;if(texts[i].l<=0)texts.splice(i,1)}
+  shake*=Math.pow(.003,dt);flash=Math.max(0,flash-dt*2.2);
+}
+function rankOf(n){return n<=0?'花火師':n<2?'見習い操縦士':n<4?'操縦士':n<7?'着陸の名手':n<10?'逆噴射の達人':'伝説の機長'}
+function showResult(){
+  st='result';let nb=false;
+  if(landed>best){best=landed;nb=true;try{localStorage.setItem('gyaku_best',String(best))}catch(e){}}
+  $('cause').textContent=stage+' 機目：'+cause;
+  $('rN').textContent=landed;$('rRank').textContent=rankOf(landed);$('rNew').textContent=nb?'自己ベスト更新！':'';
+  $('rSc').textContent=score.toLocaleString()+' 点';
+  $('rSoft').textContent=landed?'毎秒 '+bestSoft.toFixed(1)+' m':'—';
+  $('rCen').textContent=landed?'ずれ '+bestCen.toFixed(1)+' m':'—';
+  $('rBest').textContent=best+' 回連続';
+  $('result').hidden=false;showBest();
+}
+function start(){audio();reset();$('title').hidden=true;$('result').hidden=true;tone(330,.12,'triangle',.08,200)}
+
+// ---- 描画
+function draw(){
+  g.setTransform(DPR,0,0,DPR,0,0);
+  const sky=g.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#070b22');sky.addColorStop(.55,'#232a5c');sky.addColorStop(.8,'#7a4a6e');sky.addColorStop(.93,'#f2925a');sky.addColorStop(1,'#ffc77a');
+  g.fillStyle=sky;g.fillRect(0,0,W,H);
+  for(const s of stars){g.globalAlpha=.35+.35*Math.sin(tNow*1.7+s.tw);g.fillStyle='#fff';g.fillRect(s.x*W,s.y*H,s.z,s.z)}
+  g.globalAlpha=1;
+  const shx=(Math.random()-.5)*shake,shy=(Math.random()-.5)*shake;
+  const seaY=OY+SEA*S;
+  // 夕日
+  const sun=g.createRadialGradient(W*.72,seaY,4,W*.72,seaY,H*.28);sun.addColorStop(0,'rgba(255,236,180,.95)');sun.addColorStop(.25,'rgba(255,170,90,.5)');sun.addColorStop(1,'rgba(255,170,90,0)');
+  g.fillStyle=sun;g.fillRect(0,0,W,seaY);
+  g.save();g.translate(OX+shx,OY+shy);g.scale(S,S);
+  const xl=-OX/S-20,xr=(W-OX)/S+20;
+  // 風の筋
+  if(wind){g.strokeStyle='rgba(255,255,255,.16)';g.lineWidth=2;for(let i=0;i<14;i++){const yy=120+i*72+((i*37)%40),xx=((tNow*wind*5+i*173)%(xr-xl)+(xr-xl))%(xr-xl)+xl,len=20+Math.abs(wind)*1.6;g.beginPath();g.moveTo(xx,yy);g.lineTo(xx-Math.sign(wind)*len,yy);g.stroke()}}
+  // 海
+  const sea=g.createLinearGradient(0,SEA,0,WH);sea.addColorStop(0,'#27406e');sea.addColorStop(1,'#0c1a38');
+  g.fillStyle=sea;g.beginPath();g.moveTo(xl,WH+40);g.lineTo(xl,SEA);for(let x=xl;x<=xr;x+=24)g.lineTo(x,SEA+Math.sin(x*.02+tNow*1.6)*4+Math.sin(x*.047-tNow*2.3)*2);g.lineTo(xr,WH+40);g.closePath();g.fill();
+  g.strokeStyle='rgba(255,210,150,.35)';g.lineWidth=2;for(let i=0;i<7;i++){const yy=SEA+14+i*15,wv=Math.sin(tNow*1.3+i)*30;g.beginPath();g.moveTo(640+wv-70+i*8,yy);g.lineTo(640+wv+70-i*8,yy);g.stroke()}
+  // 船
+  const px=pad.x,pw=pad.w,bob=Math.sin(tNow*1.4)*1.5;
+  g.fillStyle='#161b2c';g.beginPath();g.moveTo(px-pw/2-26,DECK+8+bob);g.lineTo(px+pw/2+26,DECK+8+bob);g.lineTo(px+pw/2+6,SEA+16);g.lineTo(px-pw/2-6,SEA+16);g.closePath();g.fill();
+  g.fillStyle='#2d3550';g.fillRect(px-pw/2-18,DECK+bob,pw+36,10);
+  g.fillStyle='#ffd27a';g.fillRect(px-pw/2,DECK+bob,pw,4);
+  g.fillStyle='#fff';g.fillRect(px-3,DECK+bob,6,4);
+  for(const sd of[-1,1]){g.fillStyle=(Math.sin(tNow*6)>0)?'#ff5a4a':'#7a2a24';g.beginPath();g.arc(px+sd*(pw/2+12),DECK-4+bob,4,0,6.283);g.fill()}
+  // 着陸の目安（船の真上の点線）
+  if(st==='play'){g.strokeStyle='rgba(255,210,122,.22)';g.lineWidth=2;g.setLineDash([6,14]);g.beginPath();g.moveTo(px,DECK-20);g.lineTo(px,DECK-420);g.stroke();g.setLineDash([])}
+  // 粒
+  for(const p of parts){const al=Math.max(0,p.l/p.m);if(p.glow){g.globalCompositeOperation='lighter';g.globalAlpha=al*.8;g.fillStyle=p.c;g.beginPath();g.arc(p.x,p.y,p.z*(1.6-al*.6),0,6.283);g.fill();g.globalCompositeOperation='source-over'}else{g.globalAlpha=al;g.fillStyle=p.c;g.beginPath();g.arc(p.x,p.y,p.z,0,6.283);g.fill()}}
+  g.globalAlpha=1;
+  // ロケット
+  if(st==='play'||st==='landed'||st==='title'){
+    g.save();g.translate(R.x,R.y+(st==='landed'?bob:0));g.rotate(R.a);
+    const alt=DECK-(R.y+HALF),leg=st==='landed'?1:Math.max(0,Math.min(1,(420-alt)/200));
+    for(const sd of[-1,1]){if(sd<0?!R.eL:!R.eR)continue;const fl=60+Math.random()*34;const fg=g.createLinearGradient(0,HALF,0,HALF+fl);fg.addColorStop(0,'rgba(255,255,255,.95)');fg.addColorStop(.3,'rgba(255,210,122,.9)');fg.addColorStop(1,'rgba(255,90,40,0)');g.fillStyle=fg;g.beginPath();g.moveTo(sd*9-7,HALF);g.lineTo(sd*9+7,HALF);g.lineTo(sd*9+(Math.random()-.5)*6,HALF+fl);g.closePath();g.fill()}
+    g.strokeStyle='#20242f';g.lineWidth=4;g.lineCap='round';
+    for(const sd of[-1,1]){g.beginPath();g.moveTo(sd*11,HALF-22);g.lineTo(sd*(11+24*leg),HALF-22+22*leg+ (1-leg)*-16);g.stroke()}
+    const bd=g.createLinearGradient(-13,0,13,0);bd.addColorStop(0,'#c9cfdb');bd.addColorStop(.45,'#ffffff');bd.addColorStop(1,'#9aa2b3');
+    g.fillStyle=bd;g.beginPath();g.moveTo(-13,HALF-4);g.lineTo(-13,-HALF+16);g.quadraticCurveTo(-12,-HALF,0,-HALF-4);g.quadraticCurveTo(12,-HALF,13,-HALF+16);g.lineTo(13,HALF-4);g.closePath();g.fill();
+    g.fillStyle='#20242f';g.fillRect(-13,-HALF+18,26,7);g.fillRect(-13,HALF-14,26,10);
+    g.fillStyle='#ff7a3c';g.fillRect(-13,-8,26,5);
+    g.fillStyle='#20242f';g.fillRect(-21,-HALF+20,8,4);g.fillRect(13,-HALF+20,8,4);
+    g.fillRect(-13,HALF-4,9,5);g.fillRect(4,HALF-4,9,5);
+    g.restore();
+  }
+  g.restore();
+  if(flash>0){g.fillStyle='rgba(255,240,210,'+flash*.7+')';g.fillRect(0,0,W,H)}
+  const F='system-ui,-apple-system,"Hiragino Sans",sans-serif';
+  if(st==='play'||st==='landed'||st==='dead'){
+    const alt=Math.max(0,DECK-(R.y+HALF))/10,vs=R.vy/10,hs=(R.vx-pad.vx)/10,deg=R.a*57.3;
+    const fs=Math.round(Math.min(17,W*.04)),x0=14,y0=14+fs;
+    g.textAlign='left';g.font='800 '+fs+'px '+F;
+    const row=(i,lab,val,ok)=>{g.fillStyle='rgba(242,246,255,.7)';g.fillText(lab,x0,y0+i*(fs+8));g.fillStyle=ok?'#8dffb0':'#ff8a7a';g.fillText(val,x0+fs*4.4,y0+i*(fs+8))};
+    row(0,'高さ',alt.toFixed(0)+' m',true);
+    row(1,'降下',vs.toFixed(1)+' m/s',R.vy<=VY_OK);
+    row(2,'横',(hs>=0?'→':'←')+Math.abs(hs).toFixed(1)+' m/s',Math.abs(hs*10)<=VX_OK);
+    row(3,'傾き',Math.abs(deg).toFixed(0)+'°',Math.abs(R.a)<=ANG_OK);
+    g.fillStyle='rgba(242,246,255,.7)';g.fillText('燃料',x0,y0+4*(fs+8));
+    const bw=Math.min(150,W*.34);g.fillStyle='rgba(255,255,255,.16)';g.fillRect(x0+fs*4.4,y0+4*(fs+8)-fs+3,bw,fs-3);
+    const fr=fuel/fuelMax;g.fillStyle=fr>.3?'#ffd27a':'#ff5a4a';g.fillRect(x0+fs*4.4,y0+4*(fs+8)-fs+3,bw*fr,fs-3);
+    g.textAlign='center';g.fillStyle='#fff';g.font='900 '+Math.round(Math.min(30,W*.07))+'px '+F;
+    g.fillText(stage+' 機目',W/2,34);
+    g.font='700 '+Math.round(Math.min(15,W*.036))+'px '+F;g.fillStyle='rgba(242,246,255,.8)';
+    g.fillText(score.toLocaleString()+' 点'+(wind?'　風 '+(wind>0?'→':'←')+Math.abs(wind/10).toFixed(1):''),W/2,56);
+    // 押す場所の案内
+    if(st==='play'){
+      const zh=Math.min(74,H*.1),zy=H-zh;
+      const both=inp.B||(inp.L&&inp.R);
+      const zone=(x,w,lab,on)=>{g.fillStyle=on?'rgba(255,210,122,.3)':'rgba(255,255,255,.07)';g.fillRect(x+3,zy,w-6,zh-6);g.fillStyle=on?'#ffd27a':'rgba(242,246,255,.55)';g.font='800 '+Math.round(Math.min(18,W*.042))+'px '+F;g.fillText(lab,x+w/2,zy+zh/2+2)};
+      zone(0,W*.38,'◀ 左へ',inp.L&&!both);zone(W*.38,W*.24,'▲ 全力',both);zone(W*.62,W*.38,'右へ ▶',inp.R&&!both);
+    }
+  }
+  g.textAlign='center';
+  texts.forEach((t,i)=>{g.globalAlpha=Math.min(1,t.l*2);g.fillStyle=t.c;g.font='900 '+Math.round(Math.min(t.sz,W*t.sz/420))+'px '+F;g.shadowColor='rgba(0,0,0,.6)';g.shadowBlur=10;g.fillText(t.t,W/2,H*.36+i*Math.min(46,W*.11))});
+  g.shadowBlur=0;g.globalAlpha=1;
+}
+
+// ---- 入力
+function refresh(){let L=false,Rr=false,B=false;for(const x of ptrs.values()){const f=x/W;if(f<.38)L=true;else if(f>.62)Rr=true;else B=true}inp.pL=L;inp.pR=Rr;inp.pB=B;apply()}
+const keys={L:false,R:false,B:false};
+function apply(){inp.L=!!(inp.pL||keys.L);inp.R=!!(inp.pR||keys.R);inp.B=!!(inp.pB||keys.B)}
+window.addEventListener('pointerdown',e=>{if(e.target&&e.target.closest&&e.target.closest('button'))return;audio();if(st==='play'){ptrs.set(e.pointerId,e.clientX);refresh()}});
+window.addEventListener('pointermove',e=>{if(ptrs.has(e.pointerId)){ptrs.set(e.pointerId,e.clientX);refresh()}});
+const pup=e=>{ptrs.delete(e.pointerId);refresh()};
+window.addEventListener('pointerup',pup);window.addEventListener('pointercancel',pup);
+window.addEventListener('blur',()=>{ptrs.clear();keys.L=keys.R=keys.B=false;refresh()});
+function key(e,d){
+  const c=e.code;let hit=true;
+  if(c==='ArrowLeft'||c==='KeyA')keys.L=d;else if(c==='ArrowRight'||c==='KeyD')keys.R=d;else if(c==='ArrowUp'||c==='Space'||c==='KeyW'||c==='ArrowDown')keys.B=d;else hit=false;
+  if(hit){e.preventDefault();apply()}
+  if(d&&!e.repeat&&(c==='Space'||c==='Enter')&&(st==='title'||st==='result'))start();
+}
+window.addEventListener('keydown',e=>key(e,true));window.addEventListener('keyup',e=>key(e,false));
+for(const ev of['contextmenu','gesturestart','dblclick','selectstart'])document.addEventListener(ev,e=>e.preventDefault());
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+$('start').addEventListener('click',start);$('again').addEventListener('click',start);
+$('share').addEventListener('click',()=>{
+  const t='逆噴射で '+landed+' 回連続着陸（'+rankOf(landed)+'・'+score.toLocaleString()+'点'+(landed?'・いちばん静かな着地は毎秒'+bestSoft.toFixed(1)+'m':'')+'）\n今日の条件は全員おなじ。 #逆噴射';
+  window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(t)+'&url='+encodeURIComponent('https://nosunosukawa.github.io/gyakufunsha/'),'_blank','noopener');
+});
+
+// ---- ループ
+let lastTs=0,acc=0;
+function frame(ts){
+  requestAnimationFrame(frame);
+  if(document.hidden){lastTs=0;return}
+  if(!lastTs){lastTs=ts;return}
+  const dt=Math.min(1/30,(ts-lastTs)/1000);lastTs=ts;
+  if(st==='play'||st==='landed'){acc+=dt;while(acc>=1/120){step(1/120);acc-=1/120}}
+  else if(st==='dead'){tNow+=dt;phaseT+=dt;if(phaseT>1.5)showResult()}
+  else{tNow+=dt;if(st==='title'){R.y=420+Math.sin(tNow*.9)*30;R.a=Math.sin(tNow*.7)*.08;R.eL=R.eR=Math.sin(tNow*3)>-.4}}
+  fx(dt);draw();
+}
+document.addEventListener('visibilitychange',()=>{lastTs=0;if(document.hidden){ptrs.clear();keys.L=keys.R=keys.B=false;refresh();if(engG)engG.gain.value=0}});
+rnd=mulberry(seed);stage=0;newStage();st='title';R.x=500;R.vx=R.vy=0;pad.x=500;pad.vx=0;wind=0;
+requestAnimationFrame(frame);
+
+// 検証用の覗き口（読むだけ）
+window.__test={state:()=>({st,stage,score,landed,fuel,fuelMax,wind,x:R.x,y:R.y,vx:R.vx,vy:R.vy,a:R.a,w:R.w,alt:DECK-(R.y+HALF),pad:{x:pad.x,w:pad.w,vx:pad.vx},lim:{vy:VY_OK,vx:VX_OK,a:ANG_OK},G,ENG,cause})};
+})();
+</script>
+</body>
+</html>
